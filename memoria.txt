@@ -1,0 +1,21 @@
+En esta practica se ha desarrollado una arquitectura tipo editor/suscriptor. 
+Hay 3 archivos fundamentales:
+
+editor.c
+
+- Aqui se trata la generación de eventos de un cierto tema
+
+subscriptor.c
+
+- Aqui se trata la alta o baja a un tema de suscriptores
+
+intermediario.c
+
+- Aqui se codifica la funcionalidad de un broker que gestiona las ALTAS, BAJAS, y GENERACION de eventos
+
+
+La informacion de suscriptores suscritos a un tema se ha guardado en dos structures
+anidados por simplicidad. Además, se ha usado los ficheros con enlaces simbolicos
+edsu_comun.c para definir parte de la codificación de la parte de cliente que usan tanto el suscriptor como el editor al gestionar un ALTA, BAJA o GENERAR evento.
+También se ha usado el archivo comun.h para guardar unas variables usadas entre todos como son 
+MSG_GEN="GENERAR", MSG_ALTA="ALTA" o MSG_BAJA="BAJA".

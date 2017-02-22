@@ -1,0 +1,1 @@
+../intermediario/comun.c
