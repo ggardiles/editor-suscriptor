@@ -74,7 +74,7 @@ int pasar_mensaje(char *msg_preparado){
 	if ((strcmp(buff,"OK")) != 0){ //si status es igual a 0, ambas cadenas tienen lo mismo, es decir, buff lleva un OK
 		fprintf(stderr, "edsu_comun: Read value -> %s\n",buff);
 		close(sd1);
-		exit(1);
+		return -1;
 	}
 
 	fprintf(stdout,"edsu_comun: Read value -> %s\n",buff);	

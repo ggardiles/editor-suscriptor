@@ -5,6 +5,11 @@
 */
 
 #define BUFF_LEN 2048
+#define TOT_TEMAS 256
 #define MSG_ALTA "ALTA"
 #define MSG_BAJA "BAJA"
-#define MSG_GEN  "GENERAR"
+#define MSG_GEN "GENERAR"
+#define MSG_CREAT "CREAR"
+#define MSG_DEL "ELIMINAR"
+#define MSG_END "FIN"
+

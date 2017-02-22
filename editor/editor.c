@@ -19,11 +19,17 @@ int generar_evento(const char *tema, const char *valor) {
 
 /* solo para la version avanzada */
 int crear_tema(const char *tema) {
-	return 0;
+	char buff_msg[BUFF_LEN];
+
+	sprintf(buff_msg, "%s %s", MSG_CREAT, tema);
+	return pasar_mensaje(buff_msg);
 }
 
 /* solo para la version avanzada */
 int eliminar_tema(const char *tema) {
-	return 0;
+	char buff_msg[BUFF_LEN];
+
+	sprintf(buff_msg, "%s %s", MSG_DEL, tema);
+	return pasar_mensaje(buff_msg);
 }
 

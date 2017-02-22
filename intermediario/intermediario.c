@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define TOT_TEMAS 256
+#define META_TEMA "META_TEMA"
 
 struct Tema
 {
@@ -27,6 +27,9 @@ struct Temas
     int count_temas;
 } temas;
 
+int meta_tema_pos = 0;
+
+void suscribe_to_metatema(struct sockaddr_in *cliente);
 void read_temas_from_file(char *temas_file)
 {
     FILE *fp;
@@ -54,6 +57,15 @@ void read_temas_from_file(char *temas_file)
     fclose(fp);
     if (line)
         free(line);
+}
+
+void add_metatema(){
+    struct Tema tema1;
+    strcpy(tema1.name, META_TEMA);
+    temas.tema[temas.count_temas] = tema1;
+    meta_tema_pos = temas.count_temas;
+    temas.count_temas += 1;
+    printf("Intermediario: Creado meta_tema\n");
 }
 
 int get_tema_pos(char *tema)
@@ -110,7 +122,16 @@ int suscribe(int tema_pos, struct sockaddr_in *cliente)
 
     temas.tema[tema_pos] = tema1;
 
+    if (tema_pos != meta_tema_pos){
+        suscribe_to_metatema(&s_in);
+    }
+
     return 0;
+}
+void suscribe_to_metatema(struct sockaddr_in *cliente){
+    if (get_suscrito_pos(meta_tema_pos, cliente)<0){
+        suscribe(meta_tema_pos, cliente);
+    }    
 }
 
 int unsuscribe(int tema_pos, int serveraddr_pos, struct sockaddr_in *cliente)
@@ -130,6 +151,42 @@ int unsuscribe(int tema_pos, int serveraddr_pos, struct sockaddr_in *cliente)
     return 0;
 }
 
+int notify_tema_suscribers(const char *buffer, int pos){
+    struct Tema tema1 = temas.tema[pos];
+
+    int j, sd2;
+    for (j = 0; j < tema1.count_addr; j++)
+    { //Loop through all subscribed clients
+        sd2 = socket(AF_INET, SOCK_STREAM, 0);
+        if (sd2 < 0)
+        {
+            perror("Intermediario: notify: socket() ERROR");
+            continue;
+        }
+        fprintf(stdout, "Intermediario: notify: socket(): OK\n");
+
+        if (connect(sd2, (struct sockaddr *)&tema1.server_addr[j], sizeof(struct sockaddr_in)) < 0)
+        {
+            perror("Intermediario: notify: connect(): ERROR\n");
+            close(sd2);
+        }
+        fprintf(stdout, "Intermediario: notify: connect(): OK\n");
+
+        if (write(sd2, buffer, BUFF_LEN) < 0)
+        {
+            perror("Intermediario: notify: write(): ERROR\n");
+            close(sd2);
+        }
+        fprintf(stdout, "Intermediario: notify: write(%s): OK\n", buffer);
+    }
+    if (j < (tema1.count_addr - 1))
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 3)
@@ -137,6 +194,9 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Uso: %s puerto fichero_temas\n", argv[0]);
         return 1;
     }
+
+    // Add meta_tema    
+    add_metatema();
 
     // Read file and load Temas struct
     read_temas_from_file(argv[2]);
@@ -254,7 +314,7 @@ int main(int argc, char *argv[])
             }
             if (unsuscribe(pos, serveraddr_pos, &client) < 0)
             {
-                printf("Intermediario: BAJA: Demasiados suscriptores: ERROR\n");
+                printf("Intermediario: BAJA: ERROR\n");
                 write(cd1, "ERROR", sizeof("ERROR"));
                 continue;
             }
@@ -265,10 +325,9 @@ int main(int argc, char *argv[])
         //GENERAR
         else if ((ret = strstr(buffer, MSG_GEN)) != NULL)
         {
-            char tema[TOT_TEMAS];
-            int port, pos, sd2, j;
-            sscanf(ret + strlen(MSG_GEN), "%s%d", tema, &port);
-            client.sin_port = port;
+            char tema[TOT_TEMAS], valor[TOT_TEMAS];
+            int pos;
+            sscanf(ret + strlen(MSG_GEN), "%s%s", tema, valor);
 
             if ((pos = get_tema_pos(tema)) < 0)
             {
@@ -277,38 +336,104 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            struct Tema tema1 = temas.tema[pos];
+            printf("Intermediario: Generar: tema %s valor %s\n", tema, valor);
 
-            for (j = 0; j < tema1.count_addr; j++)
-            { //Loop through all subscribed clients
-                sd2 = socket(AF_INET, SOCK_STREAM, 0);
-                if (sd2 < 0)
+            if (notify_tema_suscribers(buffer, pos) < 0){
+                write(cd1, "ERROR", sizeof("ERROR"));
+            }else{
+                write(cd1, "OK", sizeof("OK"));
+            }
+
+        }
+
+        //CREAR TEMA
+        else if ((ret = strstr(buffer, MSG_CREAT)) != NULL)
+        {
+            char tema[TOT_TEMAS];
+            int pos;
+            sscanf(ret + strlen(MSG_CREAT), "%s", tema);
+
+            if ((pos = get_tema_pos(tema)) >= 0)
+            {
+                fprintf(stderr, "Intermediario: CREAT: El tema ya existe: ERROR\n");
+                write(cd1, "ERROR", sizeof("ERROR"));
+                continue;
+            }
+            
+            struct Tema tema1;
+            strcpy(tema1.name, tema);
+            temas.tema[temas.count_temas] = tema1;
+            temas.count_temas += 1;
+            printf("Intermediario: CREAT tema: %s\n", tema);
+            if (notify_tema_suscribers(buffer, meta_tema_pos) < 0){
+                write(cd1, "ERROR", sizeof("ERROR"));
+            }else{
+                write(cd1, "OK", sizeof("OK"));
+            }
+        }
+
+        //DELETE TEMA
+        else if ((ret = strstr(buffer, MSG_DEL)) != NULL)
+        {
+            char tema[TOT_TEMAS];
+            int pos;
+            sscanf(ret + strlen(MSG_DEL), "%s", tema);
+
+            if ((pos = get_tema_pos(tema)) < 0)
+            {
+                printf("Intermediario: DELETE: El tema no existe: ERROR\n");
+                write(cd1, "ERROR", sizeof("ERROR"));
+                continue;
+            }
+
+            if (pos == meta_tema_pos){
+                printf("Intermediario: DELETE: No se puede eliminar el meta_tema: ERROR\n");
+                write(cd1, "ERROR", sizeof("ERROR"));
+                continue;
+            }
+            
+            int j;
+            for (j = pos; j < (temas.count_temas - 1); j++)
+            {
+                temas.tema[j] = temas.tema[j + 1];
+            }
+            temas.count_temas -= 1;
+
+            printf("Intermediario: Delete tema: %s\n", tema);
+            if (notify_tema_suscribers(buffer, meta_tema_pos) < 0){
+                write(cd1, "ERROR", sizeof("ERROR"));
+            }else{
+                write(cd1, "OK", sizeof("OK"));
+            }
+            
+        }
+
+        // FIN SUSCRIPTOR
+         else if ((ret = strstr(buffer, MSG_END)) != NULL)
+        {
+            int port, pos, serveraddr_pos;
+            sscanf(ret + strlen(MSG_END), "%d", &port);
+            client.sin_port = port;
+
+            for (pos=0; pos<temas.count_temas; pos++){
+                if ((serveraddr_pos = get_suscrito_pos(pos, &client)) < 0)
                 {
-                    perror("Intermediario: GEN: socket() ERROR");
                     continue;
                 }
-                fprintf(stdout, "Intermediario: GEN: socket(): OK\n");
-
-                if (connect(sd2, (struct sockaddr *)&tema1.server_addr[j], sizeof(struct sockaddr_in)) < 0)
+                if (unsuscribe(pos, serveraddr_pos, &client) < 0)
                 {
-                    perror("Intermediario: GEN: connect(): ERROR\n");
-                    close(sd2);
+                    printf("Intermediario: FIN: ERROR\n");
+                    write(cd1, "ERROR", sizeof("ERROR"));
+                    continue;
                 }
-                fprintf(stdout, "Intermediario: GEN: connect(): OK\n");
-
-                if (write(sd2, buffer, sizeof(buffer)) < 0)
-                {
-                    perror("Intermediario: GEN: write(): ERROR\n");
-                    close(sd2);
-                }
-                fprintf(stdout, "Intermediario: GEN: connect(): OK\n");
+                printf("Intermediario: FIN: Unsuscrito tema %s\n",temas.tema[pos].name);
             }
-            if (j < (tema1.count_addr - 1))
-            {
-                write(cd1, "ERROR", sizeof("ERROR"));
-            }
+            
+            printf("Intermediario: FIN suscriptor: OK\n");
             write(cd1, "OK", sizeof("OK"));
         }
+
+
     }
 	
     return 0;
