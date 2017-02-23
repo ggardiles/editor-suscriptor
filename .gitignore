@@ -6,4 +6,4 @@ editor/test_editor_avanz
 subscriptor/prueba
 subscriptor/test_subscriptor
 subscriptor/test_subscriptor_avanz
-
+*.tar.gz
