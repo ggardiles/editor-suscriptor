@@ -12,4 +12,5 @@
 #define MSG_CREAT "CREAR"
 #define MSG_DEL "ELIMINAR"
 #define MSG_END "FIN"
+#define MSG_ALTA_SUS "SUS"
 

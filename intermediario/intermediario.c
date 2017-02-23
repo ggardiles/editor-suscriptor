@@ -122,9 +122,10 @@ int suscribe(int tema_pos, struct sockaddr_in *cliente)
 
     temas.tema[tema_pos] = tema1;
 
+    /*
     if (tema_pos != meta_tema_pos){
         suscribe_to_metatema(&s_in);
-    }
+    }*/
 
     return 0;
 }
@@ -154,7 +155,7 @@ int unsuscribe(int tema_pos, int serveraddr_pos, struct sockaddr_in *cliente)
 int notify_tema_suscribers(const char *buffer, int pos){
     struct Tema tema1 = temas.tema[pos];
 
-    int j, sd2;
+    int j, sd2, count=0;
     for (j = 0; j < tema1.count_addr; j++)
     { //Loop through all subscribed clients
         sd2 = socket(AF_INET, SOCK_STREAM, 0);
@@ -169,6 +170,7 @@ int notify_tema_suscribers(const char *buffer, int pos){
         {
             perror("Intermediario: notify: connect(): ERROR\n");
             close(sd2);
+            continue;
         }
         fprintf(stdout, "Intermediario: notify: connect(): OK\n");
 
@@ -176,10 +178,12 @@ int notify_tema_suscribers(const char *buffer, int pos){
         {
             perror("Intermediario: notify: write(): ERROR\n");
             close(sd2);
+            continue;
         }
+        count++;
         fprintf(stdout, "Intermediario: notify: write(%s): OK\n", buffer);
     }
-    if (j < (tema1.count_addr - 1))
+    if (j != count)
     {
         return -1;
     }
@@ -262,8 +266,56 @@ int main(int argc, char *argv[])
         }
         fprintf(stdout, "Intermediario: read(): OK\n");
 
-        // ALTA
-        if ((ret = strstr(buffer, MSG_ALTA)) != NULL)
+        // ALTA SUSCRIPTOR
+        if ((ret = strstr(buffer, MSG_ALTA_SUS)) != NULL)
+        {
+            int port, pos, sd2, count=1;
+            sscanf(ret + strlen(MSG_ALTA_SUS), "%d", &port);
+            client.sin_port = port;
+
+            suscribe_to_metatema(&client);
+
+            fprintf(stdout, "Intermediario: ALTA_SUS: Will notify of %d Temas\n", temas.count_temas-1);
+            // Notify this subscriber all temas
+            for (pos=1;pos<temas.count_temas;pos++){
+                struct Tema tema1 = temas.tema[pos];
+                char buff_msg[BUFF_LEN];
+                sprintf(buff_msg, "%s %s", MSG_ALTA_SUS, tema1.name);
+
+                sd2 = socket(AF_INET, SOCK_STREAM, 0);
+                if (sd2 < 0)
+                {
+                    perror("Intermediario: ALTA_SUS: socket() ERROR");
+                    continue;
+                }
+                fprintf(stdout, "Intermediario: ALTA_SUS: socket(): OK\n");
+
+                if (connect(sd2, (struct sockaddr *)&client, sizeof(struct sockaddr_in)) < 0)
+                {
+                    perror("Intermediario: ALTA_SUS: connect(): ERROR\n");
+                    close(sd2);
+                    continue;
+                }
+                fprintf(stdout, "Intermediario: ALTA_SUS: connect(): OK\n");
+
+                if (write(sd2, buff_msg, BUFF_LEN) < 0)
+                {
+                    perror("Intermediario: ALTA_SUS: write(): ERROR\n");
+                    close(sd2);
+                    continue;
+                }
+                count++;
+                fprintf(stdout, "Intermediario: ALTA_SUS: write(%s): OK\n", buff_msg);
+            }
+            if (pos==count){
+                write(cd1, "OK", sizeof("OK")); 
+            }else{
+                write(cd1, "ERROR", sizeof("ERROR"));
+            }           
+        }
+
+        // ALTA TEMA
+        else if ((ret = strstr(buffer, MSG_ALTA)) != NULL)
         {
             char tema[TOT_TEMAS];
             int port, pos;
@@ -292,7 +344,7 @@ int main(int argc, char *argv[])
             write(cd1, "OK", sizeof("OK"));
         }
 
-        //BAJA
+        //BAJA TEMA
         else if ((ret = strstr(buffer, MSG_BAJA)) != NULL)
         {
             char tema[TOT_TEMAS];
@@ -405,7 +457,7 @@ int main(int argc, char *argv[])
             }else{
                 write(cd1, "OK", sizeof("OK"));
             }
-            
+
         }
 
         // FIN SUSCRIPTOR

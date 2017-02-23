@@ -71,12 +71,20 @@ void *server_listen_thread(void *arg)
 			printf("Suscriptor: GENERADO tema %s valor %s\n", tema,valor);
 			notifica_evento(tema, valor);
 		}
+
+				// Mensaje Generado en Tema
+		else if ((ret = strstr(buff, MSG_ALTA_SUS)) != NULL)
+		{
+			sscanf(ret + strlen(MSG_ALTA_SUS), "%s", tema);
+			printf("Suscriptor: ALTA_SUS notificacion tema %s\n", tema);
+			notifica_evento(tema, "");
+		}
     }
 }
 
 int alta_subscripcion_tema(const char *tema)
 {
-    fprintf(stdout, "Called alta_subscripcion_tema\n");
+    printf("Called alta_subscripcion_tema\n");
     char buff_msg[BUFF_LEN];
 
     sprintf(buff_msg, "%s %s %d", MSG_ALTA, tema, event_port);
@@ -85,10 +93,18 @@ int alta_subscripcion_tema(const char *tema)
 
 int baja_subscripcion_tema(const char *tema)
 {
-    fprintf(stdout, "Called baja_subscripcion_tema");
+    printf("Called baja_subscripcion_tema\n");
     char buff_msg[BUFF_LEN];
 
     sprintf(buff_msg, "%s %s %d", MSG_BAJA, tema, event_port);
+    return pasar_mensaje(buff_msg);
+}
+
+int alta_suscriptor(){
+	printf("Called alta_subscriptor\n");
+    char buff_msg[BUFF_LEN];
+
+    sprintf(buff_msg, "%s %d", MSG_ALTA_SUS, event_port);
     return pasar_mensaje(buff_msg);
 }
 
@@ -155,6 +171,8 @@ int inicio_subscriptor(void (*notif_evento)(const char *, const char *),
     fprintf(stdout, "Suscriptor-Server: listen(): OK\n");
 
     pthread_create(&thread, NULL, server_listen_thread, (void *)(intptr_t)sd1);
+
+	alta_suscriptor();
 
     return 0;
 }
