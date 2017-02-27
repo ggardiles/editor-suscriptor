@@ -51,6 +51,9 @@ void *server_listen_thread(void *arg)
 		//Tema Creado
 		if ((ret = strstr(buff, MSG_CREAT)) != NULL)
 		{
+			if (!alta_de_tema){
+				continue;
+			}
 			sscanf(ret + strlen(MSG_CREAT), "%s", tema);
 			printf("Suscriptor: Alta tema: %s\n", tema);
 			alta_de_tema(tema);
@@ -59,6 +62,9 @@ void *server_listen_thread(void *arg)
 		// Tema Eliminado
 		else if ((ret = strstr(buff, MSG_DEL)) != NULL)
 		{
+			if (!baja_de_tema){
+				continue;
+			}
 			sscanf(ret + strlen(MSG_DEL), " %s", tema);
 			printf("Suscriptor: Baja tema: %s\n", tema);
 			baja_de_tema(tema);
@@ -72,12 +78,15 @@ void *server_listen_thread(void *arg)
 			notifica_evento(tema, valor);
 		}
 
-				// Mensaje Generado en Tema
+		// Alta Suscriptor tema existente
 		else if ((ret = strstr(buff, MSG_ALTA_SUS)) != NULL)
 		{
+			if (!alta_de_tema){
+				continue;
+			}
 			sscanf(ret + strlen(MSG_ALTA_SUS), "%s", tema);
 			printf("Suscriptor: ALTA_SUS notificacion tema %s\n", tema);
-			notifica_evento(tema, "");
+			alta_de_tema(tema);
 		}
     }
 }
